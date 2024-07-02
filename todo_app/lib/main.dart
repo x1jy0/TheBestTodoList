@@ -71,6 +71,27 @@ class _TodoListScreenState extends State<TodoListScreen> {
     _saveTasks();
   }
 
+  void _deleteTask(Task task) {
+    setState(() {
+      tasks.remove(task);
+    });
+    _saveTasks();
+  }
+
+  void _deleteArchivedTask(Task task) {
+    setState(() {
+      archivedTasks.remove(task);
+    });
+    _saveTasks();
+  }
+
+  void _addSubTask(Task parentTask, Task subTask) {
+    setState(() {
+      parentTask.subTasks.add(subTask);
+    });
+    _saveTasks();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,6 +107,8 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 return TaskWidget(
                   task: tasks[index],
                   onArchive: () => _archiveTask(tasks[index]),
+                  onDelete: () => _deleteTask(tasks[index]),
+                  onAddSubTask: (subTask) => _addSubTask(tasks[index], subTask),
                 );
               },
             ),
@@ -99,6 +122,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 return TaskWidget(
                   task: archivedTasks[index],
                   isArchived: true,
+                  onDelete: () => _deleteArchivedTask(archivedTasks[index]),
+                  onAddSubTask: (subTask) =>
+                      _addSubTask(archivedTasks[index], subTask),
                 );
               },
             ),
@@ -153,8 +179,15 @@ class TaskWidget extends StatefulWidget {
   final Task task;
   final bool isArchived;
   final VoidCallback? onArchive;
+  final VoidCallback? onDelete;
+  final Function(Task)? onAddSubTask;
 
-  TaskWidget({required this.task, this.isArchived = false, this.onArchive});
+  TaskWidget(
+      {required this.task,
+      this.isArchived = false,
+      this.onArchive,
+      this.onDelete,
+      this.onAddSubTask});
 
   @override
   _TaskWidgetState createState() => _TaskWidgetState();
@@ -166,7 +199,12 @@ class _TaskWidgetState extends State<TaskWidget> {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: Text(widget.task.title),
+      title: Row(
+        children: [
+          Text(widget.task.title),
+          if (widget.task.subTasks.isNotEmpty) Icon(Icons.arrow_drop_down),
+        ],
+      ),
       leading: Checkbox(
         value: widget.task.isCompleted,
         onChanged: (bool? value) {
@@ -176,10 +214,59 @@ class _TaskWidgetState extends State<TaskWidget> {
         },
       ),
       trailing: widget.isArchived
-          ? null
-          : IconButton(
-              icon: Icon(Icons.archive),
-              onPressed: widget.onArchive,
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.add),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        return NewSubTaskDialog(
+                          onAddSubTask: (subTask) {
+                            widget.onAddSubTask?.call(subTask);
+                            setState(() {}); // Refresh UI
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete),
+                  onPressed: widget.onDelete,
+                ),
+              ],
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.add),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        return NewSubTaskDialog(
+                          onAddSubTask: (subTask) {
+                            widget.onAddSubTask?.call(subTask);
+                            setState(() {}); // Refresh UI
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: Icon(Icons.archive),
+                  onPressed: widget.onArchive,
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete),
+                  onPressed: widget.onDelete,
+                ),
+              ],
             ),
       onTap: () {
         setState(() {
@@ -257,6 +344,45 @@ class _NewTaskDialogState extends State<NewTaskDialog> {
           onPressed: () {
             widget.onAddTask(
                 Task(title: _titleController.text, subTasks: _subTasks));
+            Navigator.of(context).pop();
+          },
+          child: Text('Add'),
+        ),
+      ],
+    );
+  }
+}
+
+class NewSubTaskDialog extends StatefulWidget {
+  final Function(Task) onAddSubTask;
+
+  NewSubTaskDialog({required this.onAddSubTask});
+
+  @override
+  _NewSubTaskDialogState createState() => _NewSubTaskDialogState();
+}
+
+class _NewSubTaskDialogState extends State<NewSubTaskDialog> {
+  TextEditingController _titleController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('New Sub Task'),
+      content: TextField(
+        controller: _titleController,
+        decoration: InputDecoration(labelText: 'Sub Task Title'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            widget.onAddSubTask(Task(title: _titleController.text));
             Navigator.of(context).pop();
           },
           child: Text('Add'),
