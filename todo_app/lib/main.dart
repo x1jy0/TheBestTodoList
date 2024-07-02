@@ -71,6 +71,14 @@ class _TodoListScreenState extends State<TodoListScreen> {
     _saveTasks();
   }
 
+  void _unarchiveTask(Task task) {
+    setState(() {
+      archivedTasks.remove(task);
+      tasks.add(task);
+    });
+    _saveTasks();
+  }
+
   void _deleteTask(Task task) {
     setState(() {
       tasks.remove(task);
@@ -122,6 +130,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 return TaskWidget(
                   task: archivedTasks[index],
                   isArchived: true,
+                  onUnarchive: () => _unarchiveTask(archivedTasks[index]),
                   onDelete: () => _deleteArchivedTask(archivedTasks[index]),
                   onAddSubTask: (subTask) =>
                       _addSubTask(archivedTasks[index], subTask),
@@ -179,15 +188,18 @@ class TaskWidget extends StatefulWidget {
   final Task task;
   final bool isArchived;
   final VoidCallback? onArchive;
+  final VoidCallback? onUnarchive;
   final VoidCallback? onDelete;
   final Function(Task)? onAddSubTask;
 
-  TaskWidget(
-      {required this.task,
-      this.isArchived = false,
-      this.onArchive,
-      this.onDelete,
-      this.onAddSubTask});
+  TaskWidget({
+    required this.task,
+    this.isArchived = false,
+    this.onArchive,
+    this.onUnarchive,
+    this.onDelete,
+    this.onAddSubTask,
+  });
 
   @override
   _TaskWidgetState createState() => _TaskWidgetState();
@@ -198,83 +210,94 @@ class _TaskWidgetState extends State<TaskWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Row(
-        children: [
-          Text(widget.task.title),
-          if (widget.task.subTasks.isNotEmpty) Icon(Icons.arrow_drop_down),
-        ],
-      ),
-      leading: Checkbox(
-        value: widget.task.isCompleted,
-        onChanged: (bool? value) {
-          setState(() {
-            widget.task.isCompleted = value!;
-          });
-        },
-      ),
-      trailing: widget.isArchived
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.add),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) {
-                        return NewSubTaskDialog(
-                          onAddSubTask: (subTask) {
-                            widget.onAddSubTask?.call(subTask);
-                            setState(() {}); // Refresh UI
+    return Column(
+      children: [
+        ListTile(
+          title: Row(
+            children: [
+              Text(widget.task.title),
+              if (widget.task.subTasks.isNotEmpty) Icon(Icons.arrow_drop_down),
+            ],
+          ),
+          leading: Checkbox(
+            value: widget.task.isCompleted,
+            onChanged: (bool? value) {
+              setState(() {
+                widget.task.isCompleted = value!;
+              });
+            },
+          ),
+          trailing: widget.isArchived
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.add),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) {
+                            return NewSubTaskDialog(
+                              onAddSubTask: (subTask) {
+                                widget.onAddSubTask?.call(subTask);
+                                setState(() {}); // Refresh UI
+                              },
+                            );
                           },
                         );
                       },
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete),
-                  onPressed: widget.onDelete,
-                ),
-              ],
-            )
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.add),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) {
-                        return NewSubTaskDialog(
-                          onAddSubTask: (subTask) {
-                            widget.onAddSubTask?.call(subTask);
-                            setState(() {}); // Refresh UI
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.unarchive),
+                      onPressed: widget.onUnarchive,
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: widget.onDelete,
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.add),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) {
+                            return NewSubTaskDialog(
+                              onAddSubTask: (subTask) {
+                                widget.onAddSubTask?.call(subTask);
+                                setState(() {}); // Refresh UI
+                              },
+                            );
                           },
                         );
                       },
-                    );
-                  },
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.archive),
+                      onPressed: widget.onArchive,
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: widget.onDelete,
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: Icon(Icons.archive),
-                  onPressed: widget.onArchive,
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete),
-                  onPressed: widget.onDelete,
-                ),
-              ],
-            ),
-      onTap: () {
-        setState(() {
-          _isExpanded = !_isExpanded;
-        });
-      },
-      subtitle: _isExpanded
-          ? Column(
+          onTap: () {
+            if (widget.task.subTasks.isNotEmpty) {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            }
+          },
+        ),
+        if (_isExpanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: Column(
               children: widget.task.subTasks
                   .map((subTask) => ListTile(
                         title: Text(subTask.title),
@@ -288,8 +311,9 @@ class _TaskWidgetState extends State<TaskWidget> {
                         ),
                       ))
                   .toList(),
-            )
-          : null,
+            ),
+          ),
+      ],
     );
   }
 }
