@@ -100,6 +100,13 @@ class _TodoListScreenState extends State<TodoListScreen> {
     _saveTasks();
   }
 
+  void _deleteSubTask(Task parentTask, Task subTask) {
+    setState(() {
+      parentTask.subTasks.remove(subTask);
+    });
+    _saveTasks();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -117,6 +124,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
                   onArchive: () => _archiveTask(tasks[index]),
                   onDelete: () => _deleteTask(tasks[index]),
                   onAddSubTask: (subTask) => _addSubTask(tasks[index], subTask),
+                  onDeleteSubTask: (subTask) =>
+                      _deleteSubTask(tasks[index], subTask),
+                  depth: 0,
                 );
               },
             ),
@@ -134,6 +144,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
                   onDelete: () => _deleteArchivedTask(archivedTasks[index]),
                   onAddSubTask: (subTask) =>
                       _addSubTask(archivedTasks[index], subTask),
+                  onDeleteSubTask: (subTask) =>
+                      _deleteSubTask(archivedTasks[index], subTask),
+                  depth: 0,
                 );
               },
             ),
@@ -191,6 +204,8 @@ class TaskWidget extends StatefulWidget {
   final VoidCallback? onUnarchive;
   final VoidCallback? onDelete;
   final Function(Task)? onAddSubTask;
+  final Function(Task)? onDeleteSubTask;
+  final int depth;
 
   TaskWidget({
     required this.task,
@@ -199,6 +214,8 @@ class TaskWidget extends StatefulWidget {
     this.onUnarchive,
     this.onDelete,
     this.onAddSubTask,
+    this.onDeleteSubTask,
+    required this.depth,
   });
 
   @override
@@ -213,6 +230,7 @@ class _TaskWidgetState extends State<TaskWidget> {
     return Column(
       children: [
         ListTile(
+          contentPadding: EdgeInsets.only(left: 16.0 * widget.depth),
           title: Row(
             children: [
               Text(widget.task.title),
@@ -299,16 +317,15 @@ class _TaskWidgetState extends State<TaskWidget> {
             padding: const EdgeInsets.only(left: 16.0),
             child: Column(
               children: widget.task.subTasks
-                  .map((subTask) => ListTile(
-                        title: Text(subTask.title),
-                        leading: Checkbox(
-                          value: subTask.isCompleted,
-                          onChanged: (bool? value) {
-                            setState(() {
-                              subTask.isCompleted = value!;
-                            });
-                          },
-                        ),
+                  .map((subTask) => TaskWidget(
+                        task: subTask,
+                        isArchived: widget.isArchived,
+                        onArchive: widget.onArchive,
+                        onUnarchive: widget.onUnarchive,
+                        onDelete: () => widget.onDeleteSubTask?.call(subTask),
+                        onAddSubTask: widget.onAddSubTask,
+                        onDeleteSubTask: widget.onDeleteSubTask,
+                        depth: widget.depth + 1,
                       ))
                   .toList(),
             ),
